@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Node.js
+node_modules
+npm-debug.log
+yarn.lock
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+
+# PHP
+vendor
+
+# Docker/Compose
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+
+# CI/CD
+.gitlab-ci.yml
+coverage/
+.junit/
+.cache/
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Ansible
+*.retry
+
+# Logs
+*.log
+logs/

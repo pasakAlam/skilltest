@@ -1,0 +1,6 @@
+---
+- name: Deploy application stack
+  hosts: webserver
+  become: true
+  roles:
+    - deploy-app

@@ -1,0 +1,43 @@
+stages:
+  - build-docker
+  - deploy
+
+variables:
+  IMAGE_NAME: pasakalam/nginx-php:alpine
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  GIT_STRATEGY: clone
+
+build:
+  stage: build-docker
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  before_script:
+    - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+    - docker buildx create --use
+  script:
+    - echo "Building and push Docker image..."
+    - cd docker && docker buildx build --platform linux/amd64,linux/arm64 -t $IMAGE_NAME --push .
+    # - echo "Pushing image to Docker Hub..."
+    # - docker push $IMAGE_NAME
+  only:
+    changes:
+      - docker/Dockerfile
+
+deploy:
+  stage: deploy
+  image: python:3.10
+  before_script:
+    - pip install ansible
+    - mkdir -p ~/.ssh
+    - echo "$ANSIBLE_PRIVATE_KEY_BASE64" | base64 -d > ~/.ssh/id_ansible_deploy
+    - chmod 600 ~/.ssh/id_ansible_deploy
+    - ssh-keyscan -H 108.136.186.33 >> ~/.ssh/known_hosts
+  script:
+    - echo "Running Ansible deployment..."
+    - ansible-playbook -i ansible/inventory.ini ansible/site.yml
+  only:
+    changes:
+      - docker/Dockerfile
+      - ansible/roles/deploy-app/files/docker-compose.yml

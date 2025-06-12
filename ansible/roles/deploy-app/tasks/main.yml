@@ -1,0 +1,87 @@
+---
+
+- name: Ensure app directory exists
+  file:
+    path: /home/ubuntu/app
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+- name: Create postgres init & conf directory
+  file:
+    path: /home/ubuntu/app/postgres/{{ item }}
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+  loop:
+    - init
+    - conf
+
+- name: Copy docker-compose file
+  copy:
+    src: docker-compose.yml
+    dest: /home/ubuntu/app/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+  notify: Restart docker compose
+
+- name: Copy PostgreSQL config
+  copy:
+    src: postgresql.conf
+    dest: /home/ubuntu/app/postgres/conf/postgresql.conf
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Copy PostgreSQL init SQL
+  copy:
+    src: init.sql
+    dest: /home/ubuntu/app/postgres/init/init.sql
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Ensure pgdata directory exists
+  file:
+    path: /home/ubuntu/app/pgdata
+    state: directory
+    owner: 999
+    group: 999
+    mode: '0700'
+
+- name: Docker login
+  become: true
+  shell: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  environment:
+    DOCKER_USERNAME: "{{ lookup('env', 'DOCKER_USERNAME') }}"
+    DOCKER_PASSWORD: "{{ lookup('env', 'DOCKER_PASSWORD') }}"
+
+- name: Pull latest docker images
+  command: docker compose -f docker-compose.yml pull
+  args:
+    chdir: /home/ubuntu/app
+
+- name: Run container with new image
+  become: true
+  command: docker compose -f docker-compose.yml up -d --force-recreate
+  args:
+    chdir: /home/ubuntu/app
+
+- name: Wait for PostgreSQL to be ready
+  wait_for:
+    host: 127.0.0.1
+    port: 5432
+    delay: 5
+    timeout: 30
+
+- name: Check PostgreSQL max_connections
+  become: true
+  shell: docker exec postgres psql -U admin -d sre -c "SHOW max_connections;"
+  register: pg_connections
+
+- name: Show max_connections result
+  debug:
+    var: pg_connections.stdout_lines
